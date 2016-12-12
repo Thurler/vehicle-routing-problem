@@ -5,10 +5,10 @@
 
 typedef struct Vertice {
   unsigned int id;
-  double demand;
+  unsigned int demand;
 } Vertice;
 
-void init_vertice(Vertice *v, unsigned int id, double demand);
+void init_vertice(Vertice *v, unsigned int id, unsigned int demand);
 void destroy_vertice(Vertice *v);
 bool in_vertices_array(Vertice **arr, Vertice *v, unsigned int size);
 
@@ -21,6 +21,25 @@ typedef struct Edge {
 void init_edge(Edge *e, Vertice *origin, Vertice *destination, double cost);
 void destroy_edge(Edge *e);
 bool in_edges_array(Edge **arr, Edge *e, unsigned int size);
+
+typedef struct Element {
+  unsigned int value;
+  struct Element *next;
+} Element;
+
+void init_element(Element *el, unsigned int val);
+void destroy_element(Element *el);
+
+typedef struct IntLinkedList {
+  Element *head;
+} IntLinkedList;
+
+void init_linkedlist(IntLinkedList *ll);
+void destroy_linkedlist(IntLinkedList *ll);
+void add_value(IntLinkedList *ll, unsigned int val);
+bool remove_value(IntLinkedList *ll, unsigned int val);
+void remove_head(IntLinkedList *ll);
+IntLinkedList *deep_copy(IntLinkedList *ll);
 
 typedef struct QElement {
   Vertice *value;
@@ -39,7 +58,7 @@ typedef struct Queue {
 void init_queue(Queue *q);
 void destroy_queue(Queue *q);
 void add_tail(Queue *q, Vertice *val);
-void remove_head(Queue *q);
+void q_remove_head(Queue *q);
 Vertice *get_head(Queue *q);
 
 typedef struct Solution {
@@ -81,11 +100,13 @@ typedef struct Tree {
   unsigned int edges_count;
   unsigned int n_vertices_traversed;
   double cost_so_far;
-  double path_demand_so_far;
-  double *available_vehicles;
+  unsigned int path_demand_so_far;
+  IntLinkedList *available_vehicles;
+  bool removed_vehicle;
 } Tree;
 
-void init_tree(Tree *t, Vertice *v, Edge *e, bool e_v, Tree *p);
+void init_tree(Tree *t, Vertice *v, Edge *e, bool e_v, Tree *p,
+               IntLinkedList *ll);
 void init_tree_from_parent(Tree *t, Tree *other, Vertice *v, Edge *e,
                           bool e_v, Vertice *origin);
 void destroy_tree(Tree *t);

@@ -2,21 +2,20 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "data_structures.h"
 
-#define N_V 1000
-#define N_E ((N_V * N_V) - N_V)
-
-Solution *backtrack_vrp_solve(Graph *g, Vertice *origin) {
+Solution *backtrack_vrp_solve(Graph *g, IntLinkedList *c, Vertice *origin) {
   Solution *best_solution = NULL, *solution;
   unsigned int degree, level, i;
   Tree *root, *current, *nnode;
   Vertice *vertice, *v, **v_ignore;
   Edge *edge, **e_ignore, **out_edges;
+  IntLinkedList *vehicles;
   
   root = malloc(sizeof(Tree));
-  init_tree(root, origin, NULL, false, NULL);
+  init_tree(root, origin, NULL, false, NULL, c);
 
   out_edges = edges_out(g, origin->id);
   edge = out_edges[0];
@@ -36,6 +35,14 @@ Solution *backtrack_vrp_solve(Graph *g, Vertice *origin) {
     level = current->level;
 
     if (vertice == origin) {
+      vehicles = deep_copy(current->available_vehicles);
+      if (!remove_value(vehicles, current->path_demand_so_far)) {
+        destroy_linkedlist(vehicles);
+        next_leaf(&current);
+        continue;
+      }
+      current->available_vehicles = vehicles;
+      current->removed_vehicle = true;
       current->path_demand_so_far = 0;
       if (current->n_vertices_traversed == g->n) {
         solution = malloc(sizeof(Solution));
@@ -44,12 +51,15 @@ Solution *backtrack_vrp_solve(Graph *g, Vertice *origin) {
         if (!best_solution || solution->cost < best_solution->cost) {
           destroy_solution(best_solution);
           best_solution = solution;
+          printf("Best Solution so far: %f\n", solution->cost);
+          printf("Using this many edges: %d\n", solution->n_edges);
         }
         else {
           destroy_solution(solution);
         }
 
         next_leaf(&current);
+        continue;
       }
     }
 
@@ -88,26 +98,44 @@ Solution *backtrack_vrp_solve(Graph *g, Vertice *origin) {
 }
 
 int main(int argc, char const *argv[]) {
+
+  if (argc != 2) {
+    printf("ERROR: Please only specify the filename to read from.");
+    return 1;
+  }
+
   unsigned int i, j, c;
-  Vertice **vertices = malloc(N_V*sizeof(Vertice *));
-  for (i = 0; i < N_V; i++) {
+
+  size_t bufsize = 32;
+  char *buffer = malloc(bufsize*sizeof(char));
+  FILE *file;
+  file = fopen(argv[1], "r");
+  getline(&buffer, &bufsize, file);
+
+  unsigned int n_v = atoi(buffer);
+  unsigned int n_e = (n_v * n_v) - n_v;
+
+  Vertice **vertices = malloc(n_v*sizeof(Vertice *));
+  for (i = 0; i < n_v; i++) {
     vertices[i] = malloc(sizeof(Vertice));
-    init_vertice(vertices[i], i, i);
+    getline(&buffer, &bufsize, file);
+    init_vertice(vertices[i], i, atoi(buffer));
   }
 
   Graph *g = malloc(sizeof(Graph));
-  init_graph(g, N_V, vertices);
-  for (i = 0; i < N_V; i++) {
-    init_graph_edges(g, i, N_V-1);
+  init_graph(g, n_v, vertices);
+  for (i = 0; i < n_v; i++) {
+    init_graph_edges(g, i, n_v-1);
   }
 
-  Edge **edges = malloc(N_E*sizeof(Edge *));
+  Edge **edges = malloc(n_e*sizeof(Edge *));
   c = 0;
-  for (i = 0; i < N_V; i++) {
-    for (j = 0; j < N_V; j++) {
+  for (i = 0; i < n_v; i++) {
+    for (j = 0; j < n_v; j++) {
       if (i == j) continue;
       edges[c] = malloc(sizeof(Edge));
-      init_edge(edges[c], vertices[i], vertices[j], i+j);
+      getline(&buffer, &bufsize, file);
+      init_edge(edges[c], vertices[i], vertices[j], atof(buffer));
       if (j > i) {
         g->edges[i][j-1] = edges[c];
       }
@@ -118,17 +146,29 @@ int main(int argc, char const *argv[]) {
     }
   }
 
-  Solution *s = backtrack_vrp_solve(g, vertices[0]);
+  IntLinkedList *vehicles = malloc(sizeof(IntLinkedList));
+  for (i = 0; i < n_v; i++) {
+    getline(&buffer, &bufsize, file);
+    add_value(vehicles, atoi(buffer));
+  }
 
-  printf("Cost: %f\n", s->cost);
+  Solution *s = backtrack_vrp_solve(g, vehicles, vertices[0]);
+
+  if (s) {
+    printf("N Edges: %d\n", s->n_edges);
+    printf("Cost: %f\n", s->cost);
+  } else {
+    printf("No solution!\n");
+  }
 
   destroy_solution(s);
+  destroy_linkedlist(vehicles);
 
-  for (i = 0; i < N_V; i++) {
+  for (i = 0; i < n_v; i++) {
     destroy_vertice(vertices[i]);
   }
 
-  for (i = 0; i < N_E; i++) {
+  for (i = 0; i < n_e; i++) {
     destroy_edge(edges[i]);
   }
 

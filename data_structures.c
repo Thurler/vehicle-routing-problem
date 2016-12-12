@@ -19,7 +19,7 @@ static bool array_only_has_true(bool *arr, unsigned int size) {
 //                                  VERTICES                                 
 // ===========================================================================
 
-void init_vertice(Vertice *v, unsigned int id, double demand) {
+void init_vertice(Vertice *v, unsigned int id, unsigned int demand) {
   v->id = id;
   v->demand = demand;
 }
@@ -69,6 +69,97 @@ bool in_edges_array(Edge **arr, Edge *e, unsigned int size) {
 }
 
 // ===========================================================================
+//                           INT LINKED LIST ELEMENTS                         
+// ===========================================================================
+
+void init_element(Element *el, unsigned int val) {
+  el->value = val;
+  el->next = NULL;
+}
+
+void destroy_element(Element *el) {
+  if (el) {
+    free(el);
+    el = NULL;
+  }
+}
+
+// ===========================================================================
+//                               INT LINKED LISTS                             
+// ===========================================================================
+
+void init_linkedlist(IntLinkedList *ll) {
+  ll->head = NULL;
+}
+
+void destroy_linkedlist(IntLinkedList *ll) {
+  if (ll) {
+    while(ll->head) {
+      remove_head(ll);
+    }
+    free(ll);
+    ll = NULL;
+  }
+}
+
+void add_value(IntLinkedList *ll, unsigned int val) {
+  Element *el = malloc(sizeof(Element));
+  init_element(el, val);
+  if (!ll->head || val < ll->head->value) {
+    el->next = ll->head;
+    ll->head = el;
+    return;
+  }
+  Element *it = ll->head;
+  while (it->next && it->next->value < val) {
+    it = it->next;
+  }
+  el->next = it->next;
+  it->next = el;
+}
+
+bool remove_value(IntLinkedList *ll, unsigned int val) {
+  Element *aux;
+  if (!ll->head) return false;
+  if (ll->head->value >= val) {
+    aux = ll->head;
+    ll->head = ll->head->next;
+    destroy_element(aux);
+    return true;
+  }
+  Element *it = ll->head;
+  while (it->next) {
+    if (it->next->value >= val) {
+      aux = it->next;
+      it->next = it->next->next;
+      destroy_element(aux);
+      return true;
+    }
+    it = it->next;
+  }
+  return false;
+}
+
+void remove_head(IntLinkedList *ll) {
+  if (ll->head) {
+    Element *el = ll->head;
+    ll->head = el->next;
+    destroy_element(el);
+  }
+}
+
+IntLinkedList *deep_copy(IntLinkedList *ll) {
+  IntLinkedList *new_ll = malloc(sizeof(IntLinkedList));
+  init_linkedlist(new_ll);
+  Element *it = ll->head;
+  while (it) {
+    add_value(new_ll, it->value);
+    it = it->next;
+  }
+  return new_ll;
+}
+
+// ===========================================================================
 //                                QUEUE ELEMENTS                              
 // ===========================================================================
 
@@ -96,7 +187,7 @@ void init_queue(Queue *q) {
 void destroy_queue(Queue *q) {
   if (q) {
     while (q->head) {
-      remove_head(q);
+      q_remove_head(q);
     }
     free(q);
     q = NULL;
@@ -116,7 +207,7 @@ void add_tail(Queue *q, Vertice *val) {
   }
 }
 
-void remove_head(Queue *q) {
+void q_remove_head(Queue *q) {
   if (q->head) {
     QElement *qel = q->head;
     q->head = qel->next;
@@ -207,7 +298,7 @@ void bfs(Graph *g, Edge **e_ignore, unsigned int size, Edge *e,
 
   while (!q->empty) {
     current = get_head(q);
-    remove_head(q);
+    q_remove_head(q);
     edges = edges_out(g, current->id);
     degree = degree_out(g, current->id);
     for (i = 0; i < degree; i++) {
@@ -245,7 +336,7 @@ void path(Graph *g, Edge **e_ignore, Vertice **v_ignore, unsigned int size,
 
   while (!q->empty) {
     current = get_head(q);
-    remove_head(q);
+    q_remove_head(q);
     edges = edges_out(g, current->id);
     degree = degree_out(g, current->id);
     for (i = 0; i < degree; i++) {
@@ -262,6 +353,7 @@ void path(Graph *g, Edge **e_ignore, Vertice **v_ignore, unsigned int size,
 
   OUT: destroy_queue(q);
 
+  (*mark)[origin->id] = true;
   for (current = dest; current != origin; current = paths[current->id]) {
     (*mark)[current->id] = true;
   }
@@ -315,7 +407,8 @@ bool strongly_connected(Graph *g, Edge **e_ignore, Vertice **v_ignore,
 //                                    TREES                                   
 // ===========================================================================
 
-void init_tree(Tree *t, Vertice *v, Edge *e, bool e_v, Tree *p) {
+void init_tree(Tree *t, Vertice *v, Edge *e, bool e_v, Tree *p,
+               IntLinkedList *ll) {
   t->current_v = v;
   t->current_e = e;
   t->edge_value = e_v;
@@ -326,6 +419,8 @@ void init_tree(Tree *t, Vertice *v, Edge *e, bool e_v, Tree *p) {
   t->n_vertices_traversed = 1;
   t->cost_so_far = 0;
   t->path_demand_so_far = 0;
+  t->available_vehicles = ll;
+  t->removed_vehicle = false;
 }
 
 void init_tree_from_parent(Tree *t, Tree *other, Vertice *v, Edge *e,
@@ -340,6 +435,8 @@ void init_tree_from_parent(Tree *t, Tree *other, Vertice *v, Edge *e,
   t->n_vertices_traversed = other->n_vertices_traversed + (e_v*(v != origin));
   t->cost_so_far = other->cost_so_far + (e_v*(e->cost));
   t->path_demand_so_far = other->path_demand_so_far + (e_v*(v->demand));
+  t->available_vehicles = other->available_vehicles;
+  t->removed_vehicle = false;
 }
 
 void destroy_tree(Tree *t) {
@@ -348,6 +445,9 @@ void destroy_tree(Tree *t) {
   }
   if (t->right_child) {
     destroy_tree(t->right_child);
+  }
+  if (t->removed_vehicle) {
+    destroy_linkedlist(t->available_vehicles);
   }
   free(t);
   t = NULL;
