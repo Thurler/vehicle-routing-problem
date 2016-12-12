@@ -6,7 +6,7 @@
 
 #include "data_structures.h"
 
-Solution *backtrack_vrp_solve(Graph *g, IntLinkedList *c, Vertice *origin) {
+Solution *branch_bound_vrp_solve(Graph *g, IntLinkedList *c, Vertice *origin) {
   Solution *best_solution = NULL, *solution;
   unsigned int degree, level, i;
   Tree *root, *current, *nnode;
@@ -187,7 +187,7 @@ int main(int argc, char const *argv[]) {
     add_value(vehicles, atoi(buffer));
   }
 
-  Solution *s = backtrack_vrp_solve(g, vehicles, vertices[0]);
+  Solution *s = branch_bound_vrp_solve(g, vehicles, vertices[0]);
 
   print_solution(s);
 
