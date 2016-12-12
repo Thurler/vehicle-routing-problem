@@ -21,6 +21,7 @@ typedef struct Edge {
 void init_edge(Edge *e, Vertice *origin, Vertice *destination, double cost);
 void destroy_edge(Edge *e);
 bool in_edges_array(Edge **arr, Edge *e, unsigned int size);
+void quicksort_edge_array(Edge **arr, unsigned int size);
 
 typedef struct Element {
   unsigned int value;
@@ -31,7 +32,7 @@ void init_element(Element *el, unsigned int val);
 void destroy_element(Element *el);
 
 typedef struct IntLinkedList {
-  Element *head;
+  Element *head, *tail;
 } IntLinkedList;
 
 void init_linkedlist(IntLinkedList *ll);
@@ -69,6 +70,7 @@ typedef struct Solution {
 
 void init_solution(Solution *s, unsigned int n_edges);
 void destroy_solution(Solution *s);
+void print_solution(Solution *s);
 
 typedef struct Graph {
   unsigned int n;
@@ -79,6 +81,7 @@ typedef struct Graph {
 
 void init_graph(Graph *g, unsigned int n_vertices, Vertice **v);
 void init_graph_edges(Graph *g, unsigned int vertice, unsigned int n_edges);
+void quicksort_edges(Graph *g);
 void destroy_graph(Graph *g);
 unsigned int degree_out(Graph *g, unsigned int vertice);
 Edge **edges_out(Graph *g, unsigned int vertice);
@@ -103,17 +106,23 @@ typedef struct Tree {
   unsigned int path_demand_so_far;
   IntLinkedList *available_vehicles;
   bool removed_vehicle;
+  double lower_bound;
+  double upper_bound;
 } Tree;
 
 void init_tree(Tree *t, Vertice *v, Edge *e, bool e_v, Tree *p,
-               IntLinkedList *ll);
+               IntLinkedList *ll, Vertice *origin, Graph *g);
 void init_tree_from_parent(Tree *t, Tree *other, Vertice *v, Edge *e,
-                          bool e_v, Vertice *origin);
+                          bool e_v, Vertice *origin, Graph *g);
 void destroy_tree(Tree *t);
+double get_lower_bound(Tree *t, Graph *g, Vertice *origin);
+double get_upper_bound(Tree *t, Graph *g, Vertice *origin);
 void add_child_to_parent(Tree *parent, Tree *child);
 void build_discarded_edges(Tree *t, Edge **discard_e);
 void build_traversed_vertices_edges(Tree *t, Vertice *origin,
                                     Vertice **ignore_v, Edge **ignore_e);
+void build_traversed_edges_in_out(Tree *t, Vertice *origin, Edge **e_ignore,
+                                  double *out);
 void build_solution(Tree *t, Solution *s);
 void next_leaf(Tree **current);
 

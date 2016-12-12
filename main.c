@@ -13,22 +13,31 @@ Solution *backtrack_vrp_solve(Graph *g, IntLinkedList *c, Vertice *origin) {
   Vertice *vertice, *v, **v_ignore;
   Edge *edge, **e_ignore, **out_edges;
   IntLinkedList *vehicles;
-  
+  double global_upper_bound;
+
   root = malloc(sizeof(Tree));
-  init_tree(root, origin, NULL, false, NULL, c);
+  init_tree(root, origin, NULL, false, NULL, c, origin, g);
+  printf("Root Lower Bound: %f\n", root->lower_bound);
+  printf("Root Upper Bound: %f\n\n", root->upper_bound);
 
   out_edges = edges_out(g, origin->id);
   edge = out_edges[0];
 
   nnode = malloc(sizeof(Tree));
-  init_tree_from_parent(nnode, root, edge->dest, edge, true, origin);
+  init_tree_from_parent(nnode, root, edge->dest, edge, true, origin, g);
   add_child_to_parent(root, nnode);
+  global_upper_bound = nnode->upper_bound;
 
   nnode = malloc(sizeof(Tree));
-  init_tree_from_parent(nnode, root, edge->origin, edge, false, origin);
+  init_tree_from_parent(nnode, root, edge->origin, edge, false, origin, g);
   add_child_to_parent(root, nnode);
+  if (nnode->upper_bound < global_upper_bound) {
+    global_upper_bound = nnode->upper_bound;
+  }
 
   current = root->left_child;
+
+  printf("Global Upper Bound: %f\n", global_upper_bound);
 
   while (current) {
     vertice = current->current_v;
@@ -51,8 +60,7 @@ Solution *backtrack_vrp_solve(Graph *g, IntLinkedList *c, Vertice *origin) {
         if (!best_solution || solution->cost < best_solution->cost) {
           destroy_solution(best_solution);
           best_solution = solution;
-          printf("Best Solution so far: %f\n", solution->cost);
-          printf("Using this many edges: %d\n", solution->n_edges);
+          print_solution(solution);
         }
         else {
           destroy_solution(solution);
@@ -61,6 +69,11 @@ Solution *backtrack_vrp_solve(Graph *g, IntLinkedList *c, Vertice *origin) {
         next_leaf(&current);
         continue;
       }
+    }
+
+    if (current->lower_bound >= global_upper_bound) {
+      next_leaf(&current);
+      continue;
     }
 
     v_ignore = calloc(level, sizeof(Vertice *));
@@ -77,13 +90,34 @@ Solution *backtrack_vrp_solve(Graph *g, IntLinkedList *c, Vertice *origin) {
       if (!best_solution ||
           current->cost_so_far + edge->cost < best_solution->cost) {
         nnode = malloc(sizeof(Tree));
-        init_tree_from_parent(nnode, current, edge->dest, edge, true, origin);
-        add_child_to_parent(current, nnode);
+        init_tree_from_parent(nnode, current, edge->dest, edge, true, origin, g);
+        if (nnode->path_demand_so_far > nnode->available_vehicles->tail->value) {
+          destroy_tree(nnode);
+        }
+        else if (nnode->lower_bound > global_upper_bound) {
+          destroy_tree(nnode);
+        }
+        else {
+          add_child_to_parent(current, nnode);
+          if (nnode->upper_bound < global_upper_bound) {
+            global_upper_bound = nnode->upper_bound;
+            printf("Global Upper Bound true: %f\n", global_upper_bound);
+          }
+        }
       }
       if (strongly_connected(g, e_ignore, v_ignore, level, edge, origin)) {
         nnode = malloc(sizeof(Tree));
-        init_tree_from_parent(nnode, current, edge->origin, edge, false, origin);
-        add_child_to_parent(current, nnode);
+        init_tree_from_parent(nnode, current, edge->origin, edge, false, origin, g);
+        if (nnode->lower_bound >= global_upper_bound) {
+          destroy_tree(nnode);
+        }
+        else {
+          add_child_to_parent(current, nnode);
+          if (nnode->upper_bound < global_upper_bound) {
+            global_upper_bound = nnode->upper_bound;
+            printf("Global Upper Bound false: %f\n", global_upper_bound);
+          }
+        }
       }
 
       break;
@@ -145,6 +179,7 @@ int main(int argc, char const *argv[]) {
       c++;
     }
   }
+  quicksort_edges(g);
 
   IntLinkedList *vehicles = malloc(sizeof(IntLinkedList));
   for (i = 0; i < n_v; i++) {
@@ -154,12 +189,7 @@ int main(int argc, char const *argv[]) {
 
   Solution *s = backtrack_vrp_solve(g, vehicles, vertices[0]);
 
-  if (s) {
-    printf("N Edges: %d\n", s->n_edges);
-    printf("Cost: %f\n", s->cost);
-  } else {
-    printf("No solution!\n");
-  }
+  print_solution(s);
 
   destroy_solution(s);
   destroy_linkedlist(vehicles);

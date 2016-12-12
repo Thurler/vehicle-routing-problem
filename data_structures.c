@@ -68,6 +68,41 @@ bool in_edges_array(Edge **arr, Edge *e, unsigned int size) {
   return false;
 }
 
+void quicksort_edge_array(Edge **array, unsigned int size) {
+  Edge *pivot, *tmp;
+  Edge **left, **right;
+  if (size > 1) {
+    // First element as pivot
+    pivot = *array;
+    // Left boundary is array's start
+    left = array;
+    // Right boundary is array's end
+    right = array+size-1;
+    // Repeat while there are points to look at
+    while (left <= right) {
+      // Advance left to element larger than or euqal to pivot
+      while ((*left)->cost < pivot->cost) {
+        left++;
+      }
+      // Retreat right to element smaller than or equal to pivot
+      while ((*right)->cost > pivot->cost) {
+        right--;
+      }
+      // If left is to the left of right, swap them and advance them
+      if (left <= right) {
+        tmp = *left;
+        *left = *right;
+        *right = tmp;
+        left++;
+        right--;
+      }
+    }
+    // Apply quicksort to boundaries defined by left and right
+    quicksort_edge_array(array, right-array+1);
+    quicksort_edge_array(left, array+size-left);
+  }
+}
+
 // ===========================================================================
 //                           INT LINKED LIST ELEMENTS                         
 // ===========================================================================
@@ -89,7 +124,7 @@ void destroy_element(Element *el) {
 // ===========================================================================
 
 void init_linkedlist(IntLinkedList *ll) {
-  ll->head = NULL;
+  ll->head = ll->tail = NULL;
 }
 
 void destroy_linkedlist(IntLinkedList *ll) {
@@ -105,9 +140,18 @@ void destroy_linkedlist(IntLinkedList *ll) {
 void add_value(IntLinkedList *ll, unsigned int val) {
   Element *el = malloc(sizeof(Element));
   init_element(el, val);
-  if (!ll->head || val < ll->head->value) {
+  if (!ll->head) {
+    ll->head = ll->tail = el;
+    return;
+  }
+  if (val < ll->head->value) {
     el->next = ll->head;
     ll->head = el;
+    return;
+  }
+  if (val >= ll->tail->value) {
+    ll->tail->next = el;
+    ll->tail = el;
     return;
   }
   Element *it = ll->head;
@@ -122,15 +166,16 @@ bool remove_value(IntLinkedList *ll, unsigned int val) {
   Element *aux;
   if (!ll->head) return false;
   if (ll->head->value >= val) {
-    aux = ll->head;
-    ll->head = ll->head->next;
-    destroy_element(aux);
+    remove_head(ll);
     return true;
   }
   Element *it = ll->head;
   while (it->next) {
     if (it->next->value >= val) {
       aux = it->next;
+      if (it->next == ll->tail) {
+        ll->tail = it;
+      }
       it->next = it->next->next;
       destroy_element(aux);
       return true;
@@ -144,6 +189,9 @@ void remove_head(IntLinkedList *ll) {
   if (ll->head) {
     Element *el = ll->head;
     ll->head = el->next;
+    if (!ll->head) {
+      ll->tail = NULL;
+    }
     destroy_element(el);
   }
 }
@@ -243,6 +291,20 @@ void destroy_solution(Solution *s) {
   }
 }
 
+void print_solution(Solution *s) {
+  unsigned int i;
+  if (s) {
+    printf("Solution cost: %f\n", s->cost);
+    printf("Solution path: ");
+    for (i = 0; i < s->n_edges; i++) {
+      printf("%d ", s->edges[i]->dest->id);
+    }
+    printf("0\n\n");
+  } else  {
+    printf("No solution!\n");
+  }
+}
+
 // ===========================================================================
 //                                    GRAPHS                                  
 // ===========================================================================
@@ -275,6 +337,13 @@ void destroy_graph(Graph *g) {
     }
     free(g);
     g = NULL;
+  }
+}
+
+void quicksort_edges(Graph *g) {
+  unsigned int i;
+  for (i = 0; i < g->n; i++) {
+    quicksort_edge_array(g->edges[i], g->n_edges[i]);
   }
 }
 
@@ -370,10 +439,9 @@ bool strongly_connected(Graph *g, Edge **e_ignore, Vertice **v_ignore,
   mark = calloc(g->n, sizeof(bool));
   smark = calloc(g->n, sizeof(bool));
 
-  mark[origin->id] = true;
   smark[origin->id] = true;
   for (i = 0; i < level; i++) {
-    if (v_ignore[i]) {
+    if (v_ignore[i] && v_ignore[i]->id != e->dest->id) {
       mark[v_ignore[i]->id] = true;
       smark[v_ignore[i]->id] = true;
     }
@@ -408,7 +476,7 @@ bool strongly_connected(Graph *g, Edge **e_ignore, Vertice **v_ignore,
 // ===========================================================================
 
 void init_tree(Tree *t, Vertice *v, Edge *e, bool e_v, Tree *p,
-               IntLinkedList *ll) {
+               IntLinkedList *ll, Vertice *origin, Graph *g) {
   t->current_v = v;
   t->current_e = e;
   t->edge_value = e_v;
@@ -421,10 +489,12 @@ void init_tree(Tree *t, Vertice *v, Edge *e, bool e_v, Tree *p,
   t->path_demand_so_far = 0;
   t->available_vehicles = ll;
   t->removed_vehicle = false;
+  t->lower_bound = get_lower_bound(t, g, origin);
+  t->upper_bound = get_upper_bound(t, g, origin);
 }
 
 void init_tree_from_parent(Tree *t, Tree *other, Vertice *v, Edge *e,
-                          bool e_v, Vertice *origin) {
+                          bool e_v, Vertice *origin, Graph *g) {
   t->current_v = v;
   t->current_e = e;
   t->edge_value = e_v;
@@ -437,6 +507,8 @@ void init_tree_from_parent(Tree *t, Tree *other, Vertice *v, Edge *e,
   t->path_demand_so_far = other->path_demand_so_far + (e_v*(v->demand));
   t->available_vehicles = other->available_vehicles;
   t->removed_vehicle = false;
+  t->lower_bound = get_lower_bound(t, g, origin);
+  t->upper_bound = get_upper_bound(t, g, origin);
 }
 
 void destroy_tree(Tree *t) {
@@ -451,6 +523,72 @@ void destroy_tree(Tree *t) {
   }
   free(t);
   t = NULL;
+}
+
+double get_lower_bound(Tree *t, Graph *g, Vertice *origin) {
+  unsigned int i, j, degree;
+  double *out;
+  Edge *edge, **out_edges, **e_ignore;
+
+  out = calloc(g->n, sizeof(double));
+  e_ignore = calloc(t->level, sizeof(Edge *));
+
+  build_traversed_edges_in_out(t, origin, e_ignore, out);
+
+  for (i = 0; i < g->n; i++) {
+    if (out[i]) continue;
+    out_edges = edges_out(g, i);
+    degree = degree_out(g, i);
+    for (j = 0; j < degree; j++) {
+      edge = out_edges[j];
+      if (in_edges_array(e_ignore, edge, t->level)) continue;
+      out[i] = edge->cost;
+      break;
+    }
+  }
+
+  double result = 0;
+  for (i = 0; i < g->n; i++) {
+    result += out[i];
+  }
+
+  free(out);
+  free(e_ignore);
+
+  return result;
+}
+
+double get_upper_bound(Tree *t, Graph *g, Vertice *origin) {
+  unsigned int i, j, degree;
+  double *out;
+  Edge *edge, **out_edges, **e_ignore;
+
+  out = calloc(g->n, sizeof(double));
+  e_ignore = calloc(t->level, sizeof(Edge *));
+
+  build_traversed_edges_in_out(t, origin, e_ignore, out);
+
+  for (i = 0; i < g->n; i++) {
+    if (out[i]) continue;
+    out_edges = edges_out(g, i);
+    degree = degree_out(g, i);
+    for (j = 0; j < degree; j++) {
+      edge = out_edges[degree-1 - j];
+      if (in_edges_array(e_ignore, edge, t->level)) continue;
+      out[i] = edge->cost;
+      break;
+    }
+  }
+
+  double result = 0;
+  for (i = 0; i < g->n; i++) {
+    result += out[i];
+  }
+
+  free(out);
+  free(e_ignore);
+
+  return result;
 }
 
 void add_child_to_parent(Tree *parent, Tree *child) {
@@ -477,6 +615,30 @@ void build_traversed_vertices_edges(Tree *t, Vertice *origin,
     }
     ignore_e[it_e] = e;
     it_e++;
+    iterator = iterator->parent;
+  }
+}
+
+void build_traversed_edges_in_out(Tree *t, Vertice *origin, Edge **e_ignore,
+                                  double *out) {
+  Tree *iterator = t;
+  Vertice *src, *dest;
+  Edge *e;
+  unsigned int it_e = 0;
+  while (iterator->level > 0) {
+    e = iterator->current_e;
+    e_ignore[it_e] = e;
+    it_e++;
+
+    if (iterator->edge_value) {
+      src = e->origin;
+      dest = e->dest;
+
+      if (src == origin || !out[src->id]) {
+        out[src->id] += e->cost;
+      }
+    }
+
     iterator = iterator->parent;
   }
 }
