@@ -26,11 +26,11 @@ for dirname, subdirlist, filelist in os.walk("./instances/A-VRP"):
                 demand = int(lines[7+n_v+1+i][:-2].split(' ')[1])
                 demands.append(demand)
             with open("./instances/"+filename+'t', 'w') as outp:
-                outp.write(str(18)+'\n')
-                for demand in demands[:18]:
+                outp.write(str(n_v)+'\n')
+                for demand in demands:
                     outp.write(str(demand)+'\n')
-                for dist_v in distances[:18]:
-                    for dist in dist_v[:17]:
+                for dist_v in distances:
+                    for dist in dist_v:
                         outp.write(str(dist)+'\n')
-                for i in range(18):
+                for i in range(n_v):
                     outp.write(str(capacity)+'\n')

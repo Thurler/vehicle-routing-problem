@@ -7,7 +7,7 @@
 #include "data_structures.h"
 
 Solution *branch_bound_vrp_solve(Graph *g, IntLinkedList *c, Vertice *origin,
-                                 int n_iter) {
+                                 int n_iter, unsigned int initial) {
   Solution *best_solution = NULL, *solution;
   unsigned int degree, level, i, it_counter = 0;
   Tree *root, *current, *nnode;
@@ -16,13 +16,13 @@ Solution *branch_bound_vrp_solve(Graph *g, IntLinkedList *c, Vertice *origin,
   IntLinkedList *vehicles;
   double global_upper_bound;
 
+  printf("Begin branch and bound!\n\n");
+
   root = malloc(sizeof(Tree));
   init_tree(root, origin, NULL, false, NULL, c, origin, g);
-  printf("Root Lower Bound: %f\n", root->lower_bound);
-  printf("Root Upper Bound: %f\n\n", root->upper_bound);
 
   out_edges = edges_out(g, origin->id);
-  edge = out_edges[0];
+  edge = out_edges[initial];
 
   nnode = malloc(sizeof(Tree));
   init_tree_from_parent(nnode, root, edge->dest, edge, true, origin, g);
@@ -37,8 +37,6 @@ Solution *branch_bound_vrp_solve(Graph *g, IntLinkedList *c, Vertice *origin,
   }
 
   current = root->left_child;
-
-  printf("Global Upper Bound: %f\n", global_upper_bound);
 
   while (current) {
     it_counter++;
@@ -112,7 +110,6 @@ Solution *branch_bound_vrp_solve(Graph *g, IntLinkedList *c, Vertice *origin,
           add_child_to_parent(current, nnode);
           if (nnode->upper_bound < global_upper_bound) {
             global_upper_bound = nnode->upper_bound;
-            printf("Global Upper Bound true: %f\n", global_upper_bound);
           }
         }
       }
@@ -126,7 +123,6 @@ Solution *branch_bound_vrp_solve(Graph *g, IntLinkedList *c, Vertice *origin,
           add_child_to_parent(current, nnode);
           if (nnode->upper_bound < global_upper_bound) {
             global_upper_bound = nnode->upper_bound;
-            printf("Global Upper Bound false: %f\n", global_upper_bound);
           }
         }
       }
@@ -149,8 +145,15 @@ Solution *heuristic_vrp_solve(Graph *g, IntLinkedList *c, Vertice *origin,
   Solution *best_solution, *best_bb_solution, *solution;
   Vertice *aux, **sequence;
   
-  best_bb_solution = branch_bound_vrp_solve(g, c, origin, n_iter);
-  if (!best_bb_solution) return NULL;
+  for (i = 0; i < 10; i++) {
+    best_bb_solution = branch_bound_vrp_solve(g, c, origin, n_iter, i);
+    if (best_bb_solution) {
+      if (!best_solution || best_bb_solution->cost < best_solution->cost) {
+        best_solution = best_bb_solution;
+      }
+    }
+  }
+  if (!best_solution) return NULL;
   best_solution = best_bb_solution;
   n_edges = best_bb_solution->n_edges;
   sequence = calloc(n_edges + 1, sizeof(Vertice *));
@@ -262,7 +265,7 @@ int main(int argc, char const *argv[]) {
     s = heuristic_vrp_solve(g, vehicles, vertices[0], n_iter);
   }
   else {
-    s = branch_bound_vrp_solve(g, vehicles, vertices[0], n_iter);
+    s = branch_bound_vrp_solve(g, vehicles, vertices[0], n_iter, 0);
   }
 
   print_solution(s);
