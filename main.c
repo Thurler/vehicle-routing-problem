@@ -155,7 +155,7 @@ Solution *heuristic_vrp_solve(Graph *g, IntLinkedList *c, Vertice *origin,
   n_edges = best_bb_solution->n_edges;
   sequence = calloc(n_edges + 1, sizeof(Vertice *));
 
-  printf("\n\nEnd branch and bound, begin local search\n");
+  printf("\nEnd branch and bound, begin local search\n\n");
 
   for (i = 0; i < n_edges; i++) {
     sequence[i] = best_bb_solution->edges[n_edges-1 - i]->origin;
@@ -164,7 +164,6 @@ Solution *heuristic_vrp_solve(Graph *g, IntLinkedList *c, Vertice *origin,
 
   while (change) {
     change = false;
-    printf("ASDASDASD\n");
     for (i = 1; i < n_edges; i++) {
       for (j = i+1; j < n_edges; j++) {
         aux = sequence[i];
