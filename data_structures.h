@@ -62,16 +62,6 @@ void add_tail(Queue *q, Vertice *val);
 void q_remove_head(Queue *q);
 Vertice *get_head(Queue *q);
 
-typedef struct Solution {
-  double cost;
-  unsigned int n_edges;
-  Edge **edges;
-} Solution;
-
-void init_solution(Solution *s, unsigned int n_edges);
-void destroy_solution(Solution *s);
-void print_solution(Solution *s);
-
 typedef struct Graph {
   unsigned int n;
   unsigned int *n_edges;
@@ -91,6 +81,18 @@ void path(Graph *g, Edge **e_ignore, Vertice **v_ignore, unsigned int size,
           Edge *e, Vertice *origin, Vertice *dest, bool **mark);
 bool strongly_connected(Graph *g, Edge **e_ignore, Vertice **v_ignore,
                         unsigned int level, Edge *e, Vertice *origin);
+
+typedef struct Solution {
+  double cost;
+  unsigned int n_edges;
+  Edge **edges;
+} Solution;
+
+void init_solution(Solution *s, unsigned int n_edges);
+void destroy_solution(Solution *s);
+void print_solution(Solution *s);
+bool build_solution_from_sequence(Solution *s, Vertice **sequence, Graph *g,
+                                  IntLinkedList *c, Vertice *origin);
 
 typedef struct Tree {
   Vertice *current_v;

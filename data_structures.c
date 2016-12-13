@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include "data_structures.h"
 
+
 // ===========================================================================
 //                              STATIC FUNCTIONS                              
 // ===========================================================================
@@ -272,40 +273,6 @@ Vertice *get_head(Queue *q) {
 }
 
 // ===========================================================================
-//                                  SOLUTIONS                                 
-// ===========================================================================
-
-void init_solution(Solution *s, unsigned int n_edges) {
-  s->cost = 0;
-  s->n_edges = n_edges;
-  s->edges = calloc(n_edges, sizeof(Edge *));
-}
-
-void destroy_solution(Solution *s) {
-  if (s) {
-    if (s->edges) {
-      free(s->edges);
-    }
-    free(s);
-    s = NULL;
-  }
-}
-
-void print_solution(Solution *s) {
-  unsigned int i;
-  if (s) {
-    printf("Solution cost: %f\n", s->cost);
-    printf("Solution path: ");
-    for (i = 0; i < s->n_edges; i++) {
-      printf("%d ", s->edges[i]->dest->id);
-    }
-    printf("0\n\n");
-  } else  {
-    printf("No solution!\n");
-  }
-}
-
-// ===========================================================================
 //                                    GRAPHS                                  
 // ===========================================================================
 
@@ -467,6 +434,80 @@ bool strongly_connected(Graph *g, Edge **e_ignore, Vertice **v_ignore,
 
   free(mark);
   free(smark);
+
+  return ret;
+}
+
+// ===========================================================================
+//                                  SOLUTIONS                                 
+// ===========================================================================
+
+void init_solution(Solution *s, unsigned int n_edges) {
+  s->cost = 0;
+  s->n_edges = n_edges;
+  s->edges = calloc(n_edges, sizeof(Edge *));
+}
+
+void destroy_solution(Solution *s) {
+  if (s) {
+    if (s->edges) {
+      free(s->edges);
+    }
+    free(s);
+    s = NULL;
+  }
+}
+
+void print_solution(Solution *s) {
+  unsigned int i;
+  if (s) {
+    printf("Solution cost: %f\n", s->cost);
+    printf("Solution path: ");
+    for (i = 0; i < s->n_edges; i++) {
+      if (s->edges[i]) {
+        printf("%d ", s->edges[i]->dest->id);
+      }
+    }
+    printf("0\n\n");
+  } else  {
+    printf("No solution!\n");
+  }
+}
+
+bool build_solution_from_sequence(Solution *s, Vertice **sequence, Graph *g,
+                                  IntLinkedList *c, Vertice *origin) {
+  bool ret = true;
+  unsigned int i, j, id_src, id_dest, degree, demand, it_s = 0;
+  Edge *edge, **out_edges;
+  IntLinkedList *vehicles = deep_copy(c);
+
+  demand = 0;
+  for (i = 0; i < s->n_edges; i++) {
+    id_src = sequence[i]->id;
+    id_dest = sequence[i+1]->id;
+    if (id_src == id_dest) continue;
+    out_edges = edges_out(g, id_src);
+    degree = degree_out(g, id_src);
+    for (j = 0; j < degree; j++) {
+      if (out_edges[j]->dest->id == id_dest) {
+        edge = out_edges[j];
+        break;
+      }
+    }
+    s->edges[it_s] = edge;
+    it_s++;
+    s->cost += edge->cost;
+    demand += edge->dest->demand;
+    if (edge->dest == origin) {
+      if (!remove_value(vehicles, demand)) {
+        ret = false;
+        break;
+      }
+      demand = 0;
+    }
+  }
+
+  destroy_linkedlist(vehicles);
 
   return ret;
 }

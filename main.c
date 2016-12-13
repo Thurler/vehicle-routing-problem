@@ -6,9 +6,10 @@
 
 #include "data_structures.h"
 
-Solution *branch_bound_vrp_solve(Graph *g, IntLinkedList *c, Vertice *origin) {
+Solution *branch_bound_vrp_solve(Graph *g, IntLinkedList *c, Vertice *origin,
+                                 int n_iter) {
   Solution *best_solution = NULL, *solution;
-  unsigned int degree, level, i;
+  unsigned int degree, level, i, it_counter = 0;
   Tree *root, *current, *nnode;
   Vertice *vertice, *v, **v_ignore;
   Edge *edge, **e_ignore, **out_edges;
@@ -40,6 +41,16 @@ Solution *branch_bound_vrp_solve(Graph *g, IntLinkedList *c, Vertice *origin) {
   printf("Global Upper Bound: %f\n", global_upper_bound);
 
   while (current) {
+    it_counter++;
+    if (n_iter && n_iter > 0 && it_counter > n_iter) {
+      destroy_tree(root);
+      return best_solution;
+    }
+    else if (n_iter && n_iter < 0 && best_solution) {
+      destroy_tree(root);
+      return best_solution;
+    }
+
     vertice = current->current_v;
     level = current->level;
 
@@ -131,10 +142,64 @@ Solution *branch_bound_vrp_solve(Graph *g, IntLinkedList *c, Vertice *origin) {
   return best_solution;
 }
 
+Solution *heuristic_vrp_solve(Graph *g, IntLinkedList *c, Vertice *origin,
+                              int n_iter) {
+  bool change = true;
+  unsigned int i, j, n_edges;
+  Solution *best_solution, *best_bb_solution, *solution;
+  Vertice *aux, **sequence;
+  
+  best_bb_solution = branch_bound_vrp_solve(g, c, origin, n_iter);
+  if (!best_bb_solution) return NULL;
+  best_solution = best_bb_solution;
+  n_edges = best_bb_solution->n_edges;
+  sequence = calloc(n_edges + 1, sizeof(Vertice *));
+
+  printf("\n\nEnd branch and bound, begin local search\n");
+
+  for (i = 0; i < n_edges; i++) {
+    sequence[i] = best_bb_solution->edges[n_edges-1 - i]->origin;
+  }
+  sequence[n_edges] = best_bb_solution->edges[0]->dest;
+
+  while (change) {
+    change = false;
+    printf("ASDASDASD\n");
+    for (i = 1; i < n_edges; i++) {
+      for (j = i+1; j < n_edges; j++) {
+        aux = sequence[i];
+        sequence[i] = sequence[j];
+        sequence[j] = aux;
+        solution = malloc(sizeof(Solution));
+        init_solution(solution, n_edges);
+        if (build_solution_from_sequence(solution, sequence, g, c, origin)) {
+          if (solution->cost < best_solution->cost) {
+            destroy_solution(best_solution);
+            best_solution = solution;
+            print_solution(solution);
+            change = true;
+          }
+          else goto UNDO;
+        }
+        else {
+          UNDO: aux = sequence[i];
+          sequence[i] = sequence[j];
+          sequence[j] = aux;
+          destroy_solution(solution);
+        }
+      }
+    }
+  }
+
+  free(sequence);
+
+  return best_solution;
+}
+
 int main(int argc, char const *argv[]) {
 
-  if (argc != 2) {
-    printf("ERROR: Please only specify the filename to read from.");
+  if (argc != 3 && argc != 4) {
+    printf("ERROR: Please specify both instance name and algorithm.");
     return 1;
   }
 
@@ -145,6 +210,12 @@ int main(int argc, char const *argv[]) {
   FILE *file;
   file = fopen(argv[1], "r");
   getline(&buffer, &bufsize, file);
+
+  bool algorithm = atoi(argv[2]);
+  int n_iter = 0;
+  if (algorithm) {
+    n_iter = atoi(argv[3]);
+  }
 
   unsigned int n_v = atoi(buffer);
   unsigned int n_e = (n_v * n_v) - n_v;
@@ -187,7 +258,13 @@ int main(int argc, char const *argv[]) {
     add_value(vehicles, atoi(buffer));
   }
 
-  Solution *s = branch_bound_vrp_solve(g, vehicles, vertices[0]);
+  Solution *s;
+  if (algorithm) {
+    s = heuristic_vrp_solve(g, vehicles, vertices[0], n_iter);
+  }
+  else {
+    s = branch_bound_vrp_solve(g, vehicles, vertices[0], n_iter);
+  }
 
   print_solution(s);
 
